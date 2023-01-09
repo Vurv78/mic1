@@ -42,4 +42,5 @@ subleq @ZERO, @ZERO, @LOOP
 @A: .data 0
 @B: .data 0
 @ZERO: .data 0
+]]
 ```
