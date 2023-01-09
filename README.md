@@ -4,6 +4,8 @@ A tiny (<300 SLOC), optimizing, statement-based language that compiles to SIC-1 
 
 ```lua
 local ast = parse [[
+	// Comment
+
 	static a = 0
 	static b = 0
 	static zero = 0
@@ -11,6 +13,8 @@ local ast = parse [[
 	loop {
 		a -= b
 		b += a
+
+		echo b
 
 		zero = 0
 	}
@@ -22,16 +26,15 @@ local ast = parse [[
 	}
 ]]
 
-local compiled = compile(optimize(ast))
-
-print("Optimized: ", compiled)
+print( compile( optimize(ast) ) )
 --[[
 @LOOP:
 subleq @A, @B
 subleq @B, @ZERO
 subleq @ZERO, @A
 subleq @B, @A
-subleq @ZERO, @ZERO, @LOOP ; <-- Optimized two instructions into a single subleq
+subleq @OUT @B
+subleq @ZERO, @ZERO, @LOOP
 ; hello
 ; hello
 ; hello
@@ -39,5 +42,4 @@ subleq @ZERO, @ZERO, @LOOP ; <-- Optimized two instructions into a single subleq
 @A: .data 0
 @B: .data 0
 @ZERO: .data 0
-]]
 ```
