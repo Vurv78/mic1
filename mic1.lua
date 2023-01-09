@@ -91,8 +91,6 @@ local function parse(code)
 			local name = assert(consume("^([%w_]+)"), "Expected name for static variable")
 			assert(consume("^="), "Expected '=' to follow static declaration")
 
-			print("static", name)
-
 			local value = consume("^(%d+)")
 			if value then
 				return Stmt.new(StmtKind.Static, { name, tonumber(value) })
