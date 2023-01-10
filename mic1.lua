@@ -83,8 +83,6 @@ local function parse(code)
 		elseif op == "for" then
 			local num = assert( consume("^(%d+)"), "Expected number after for keyword" )
 			return Stmt.new(StmtKind.For, {tonumber(num), consumeBlock()})
-		elseif op == "goto" then
-			return Stmt.new(StmtKind.Goto, consumeAddress())
 		elseif op == "echo" then
 			return Stmt.new(StmtKind.Echo, consumeAddress())
 		elseif op == "static" then
@@ -113,8 +111,6 @@ local function parse(code)
 			elseif consume("=") then
 				assert(consume("0"), "Can only assign to 0.")
 				return Stmt.new(StmtKind.Zero, op)
-			elseif consume("^:") then
-				return Stmt.new(StmtKind.Label, op)
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end
