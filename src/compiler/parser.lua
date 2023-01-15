@@ -65,6 +65,8 @@ local function parse(code)
 	end
 
 
+	local macros = {}
+
 	local function consumeAddress()
 		local offset, addr = consume("^-") and "-1", consume("^($?[%w_]+)") or error("Invalid address: " .. (consume("^(%S+)") or "EOF"))
 		if not offset and consume("^+") then
@@ -76,7 +78,7 @@ local function parse(code)
 
 	local consumeBlock
 
-	---@return Stmt?
+	---@return Stmt|true|nil
 	local function next()
 		local op = consume("^($?[%w_]+)")
 		if op == "loop" then
@@ -106,6 +108,25 @@ local function parse(code)
 		elseif op == "asm" then
 			local block = assert( consume("^(%b{})"), "Expected block after asm keyword" )
 			return Stmt.new(StmtKind.Asm, block:sub(2, -2))
+		elseif op == "macro" then
+			local name, params = assert(consume("^(%l[%w_]+)"), "Expected macro name after macro keyword"), {}
+			assert(consume("^%("), "Expected left paren to start macro parameters")
+			if consume("^%)") then macros[name] = {{}, consumeBlock()} return true end
+			while true do
+				local pname = assert(consume("^(%w+)"), "Expected parameter name")
+				assert(consume("^:"), "Expected colon for macro parameter type")
+
+				local ty = assert(consume("^(%w+)"), "Expected macro parameter type after colon")
+				assert(ty == "block" or ty == "address", "Invalid macro parameter type (" .. ty .. "), expected block or address")
+				params[#params + 1] = { pname, ty }
+
+				if not consume("^,") then
+					break
+				end
+			end
+			assert(consume("^%)"), "Expected right paren to end macro parameters")
+			macros[name] = {params, consumeBlock()}
+			return true
 		elseif op then
 			if consume("^+=") then
 				return Stmt.new(StmtKind.Add, {{op}, consumeAddress()})
@@ -114,6 +135,27 @@ local function parse(code)
 			elseif consume("^=") then
 				assert(consume("^0"), "Can only assign to 0.")
 				return Stmt.new(StmtKind.Zero, {op})
+			elseif consume("^!") then
+				assert(macros[op], "Macro does not exist: " .. op)
+				if consume("^%(") then
+					local args, last = {}, #macros[op][1]
+					for i, data in ipairs(macros[op][1]) do
+						if data[2] == "block" then
+							args[data[1]] = consumeBlock()
+						elseif data[2] == "address" then
+							args[data[1]] = consumeAddress()
+						end
+
+						if i ~= last then
+							assert(consume("^,"), "Expected comma between macro arguments")
+						end
+					end
+					assert(consume("^%)"), "Expected right paren to end macro arguments")
+					return macros[op][2]
+				end
+
+				assert(#macros[op][1] == 0, "Cannot invoke this macro without any arguments")
+				return macros[op][2]
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end
@@ -131,8 +173,9 @@ local function parse(code)
 			local stmt = next()
 			if not stmt then
 				error("Parsing error: What is (" .. tostring(consume("^(%S+)")) .. ") ?")
+			elseif stmt ~= true then
+				block[#block + 1] = stmt
 			end
-			block[#block + 1] = stmt
 		end
 
 		error("Expected } to end block, got EOF")
@@ -143,8 +186,9 @@ local function parse(code)
 		local stmt = next()
 		if not stmt then
 			error("Parsing error: What is (" .. tostring(consume("^(%S+)")) .. ") ?")
+		elseif stmt ~= true then
+			ast[#ast + 1] = stmt
 		end
-		ast[#ast + 1] = stmt
 	end
 
 	return Stmt.new(StmtKind.Block, ast)
