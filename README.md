@@ -1,6 +1,6 @@
 # mic1
 
-A tiny (~300 SLOC), optimizing, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
+A tiny (~300 SLOC), optimizing, metaprogrammable, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
 
 `Source`:
 ```rust
@@ -26,6 +26,14 @@ for 4 { // Compile time unfolded loop
 		; Write raw sic-1 code if needed.
 	}
 }
+
+macro subleq(a:address, b:address, c:address) {
+	asm {
+		subleq $a, $b, $c
+	}
+}
+
+subleq!(a, b, c)
 ```
 
 `Compiled`:
