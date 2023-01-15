@@ -111,7 +111,7 @@ local function parse(code)
 		elseif op == "macro" then
 			local name, params = assert(consume("^(%l[%w_]+)"), "Expected macro name after macro keyword"), {}
 			assert(consume("^%("), "Expected left paren to start macro parameters")
-			if consume("^%)") then macros[name] = {{}, consumeBlock()} return true end
+			if consume("^%)") then macros[name] = {{}, assert(consume("^(%b{})"), "Expected block for macro"):sub(2, -2)} return true end
 			while true do
 				local pname = assert(consume("^(%w+)"), "Expected parameter name")
 				assert(consume("^:"), "Expected colon for macro parameter type")
@@ -125,7 +125,10 @@ local function parse(code)
 				end
 			end
 			assert(consume("^%)"), "Expected right paren to end macro parameters")
-			macros[name] = {params, consumeBlock()}
+
+			local block = assert(consume("^(%b{})"), "Expected block for macro"):sub(2, -2)
+			macros[name] = {params, block}
+
 			return true
 		elseif op then
 			if consume("^+=") then
@@ -136,14 +139,14 @@ local function parse(code)
 				assert(consume("^0"), "Can only assign to 0.")
 				return Stmt.new(StmtKind.Zero, {op})
 			elseif consume("^!") then
-				assert(macros[op], "Macro does not exist: " .. op)
+				local macro = assert(macros[op], "Macro does not exist: " .. op)
 				if consume("^%(") then
-					local args, last = {}, #macros[op][1]
-					for i, data in ipairs(macros[op][1]) do
+					local args, last = {}, #macro[1]
+					for i, data in ipairs(macro[1]) do
 						if data[2] == "block" then
-							args[data[1]] = consumeBlock()
+							args[data[1]] = assert(consume("^(%b{})"), "Expected block for macro argument #" .. i):sub(2, -2)
 						elseif data[2] == "address" then
-							args[data[1]] = consumeAddress()
+							args[data[1]] = assert(consume("^($?[%w_]+)"), "Expected address for macro argument #" .. i)
 						end
 
 						if i ~= last then
@@ -151,11 +154,11 @@ local function parse(code)
 						end
 					end
 					assert(consume("^%)"), "Expected right paren to end macro arguments")
-					return macros[op][2]
+					return parse(macro[2]:gsub("$(%w+)", args))
 				end
 
-				assert(#macros[op][1] == 0, "Cannot invoke this macro without any arguments")
-				return macros[op][2]
+				assert(#macro[1] == 0, "Cannot invoke this macro without any arguments")
+				return parse(macro[2])
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end
@@ -172,7 +175,7 @@ local function parse(code)
 
 			local stmt = next()
 			if not stmt then
-				error("Parsing error: What is (" .. tostring(consume("^(%S+)")) .. ") ?")
+				error("Parsing error: What is (" .. tostring(consume("^(%S+)") or "EOF") .. ")? @" .. ptr)
 			elseif stmt ~= true then
 				block[#block + 1] = stmt
 			end
@@ -185,9 +188,10 @@ local function parse(code)
 	while ptr < code_len do
 		local stmt = next()
 		if not stmt then
-			error("Parsing error: What is (" .. tostring(consume("^(%S+)")) .. ") ?")
+			error("Parsing error: What is (" .. tostring(consume("^(%S+)") or "EOF") .. ")? @" .. ptr)
 		elseif stmt ~= true then
 			ast[#ast + 1] = stmt
+			skipWhitespace()
 		end
 	end
 
