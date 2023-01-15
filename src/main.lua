@@ -31,7 +31,7 @@ elseif arg[1] == "parse" then
 	local optimized = Mic.optimize(ast)
 	io.write(dbg(optimized))
 else
-	print([[
+	io.write([[
 		Mic1 Compiler:
 			compile <path>
 			parse <path>

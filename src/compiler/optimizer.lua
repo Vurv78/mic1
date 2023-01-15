@@ -11,7 +11,7 @@ local function optimize(ast)
 	}
 
 	local function makeAddress(addr) -- Assumes that the address is valid. Might need a validation step.
-		return addresses[addr] or ("@" .. string.upper(addr))
+		return addresses[addr[1]] or ("@" .. string.upper(addr[1]))
 	end
 
 	local function optimizeStmt(stmt)
@@ -28,10 +28,9 @@ local function optimize(ast)
 
 			local last_stmt = stmts[#stmts]
 			if last_stmt and last_stmt.kind == StmtKind.Zero then
-				-- Optimize this last node into one that also jmps to beginning of loop.
-				local addr = makeAddress(last_stmt.data)
-				stmts[#stmts] = Stmt.new(StmtKind.Asm, string.format("subleq %s, %s, @LOOP", addr, addr))
-				stmt.data[2] = false
+				-- Use this zeroing operation to jmp to top of loop
+				stmt.data[2] = makeAddress(last_stmt.data)
+				stmts[#stmts] = nil
 			end
 		end
 

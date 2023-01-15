@@ -1,3 +1,7 @@
+function Sic(...)
+	return table.concat({...}, "\n")
+end
+
 Assert = {}
 function Assert.equal(a, b)
 	if a ~= b then

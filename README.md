@@ -1,46 +1,54 @@
 # mic1
 
-A tiny (<300 SLOC), optimizing, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
+A tiny (~300 SLOC), optimizing, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
 
-```lua
-local ast = parse [[
-	// Comment
+`Source`:
+```rust
+static a = 0
+static msg = -"Hello, world!" // String literals
+static zero = 0
 
-	static a = 0
-	static b = 0
-	static zero = 0
+loop { // Infinite loop syntax sugar
+	a -= $in // Inputs
+	echo a + 2 // Address offsets + Printing syntax sugar
 
-	loop {
-		a -= b
-		b += a
-
-		echo b
-
-		zero = 0
+	if a < 0 {
+		echo msg // Can print strings too
+	} else {
+		echo a
 	}
 
-	for 4 {
-		asm {
-			; hello
-		}
-	}
-]]
+	zero = 0 // This is zero cost, since the loop will hijack this and use it to reset (jmp) to the beginning of the loop!
+}
 
-print( compile( optimize(ast) ) )
---[[
-@LOOP:
-subleq @A, @B
-subleq @B, @ZERO
-subleq @ZERO, @A
-subleq @B, @A
-subleq @OUT @B
-subleq @ZERO, @ZERO, @LOOP
-; hello
-; hello
-; hello
-; hello
+for 4 { // Compile time unfolded loop
+	asm {
+		; Write raw sic-1 code if needed.
+	}
+}
+```
+
+`Compiled`:
+```haskell
+@LOOP1:
+subleq @A, @IN
+subleq @OUT, @A+2
+subleq @ZERO, @A, @ELSE1
+subleq @ZERO, @ZERO, @IF1
+@IF1:
+@LOOP2:
+subleq @OUT, @MSG
+subleq @LOOP2+1, @NEGATIVE_ONE
+subleq @ZERO, @ZERO, @LOOP2
+@ELSE1:
+subleq @OUT, @A
+subleq @ZERO, @ZERO, @LOOP1
+; Write raw sic-1 code if needed.
+; Write raw sic-1 code if needed.
+; Write raw sic-1 code if needed.
+; Write raw sic-1 code if needed.
 @A: .data 0
-@B: .data 0
+@MSG: .data -"Hello, world!"
 @ZERO: .data 0
-]]
+@NEGATIVE_ONE: .data -1
 ```

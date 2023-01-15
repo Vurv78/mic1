@@ -1,2 +1,0 @@
-static msg = -"Test"
-echo msg

@@ -2,13 +2,14 @@
 local StmtKind = {
 	Block = 1,
 	Static = 2, -- static var = 5
-	Loop = 3, -- loop {}
-	For = 4, -- for 4 {}
-	Echo = 5, -- echo xyz
-	Asm = 6, -- asm {}
-	Zero = 7, -- xyz = 0
-	Sub = 8, -- xyz -= zyx
-	Add = 9 -- xyz += zyx
+	If = 3,
+	Loop = 4, -- loop {}
+	For = 5, -- for 4 {}
+	Echo = 6, -- echo xyz
+	Asm = 7, -- asm {}
+	Zero = 8, -- xyz = 0
+	Sub = 9, -- xyz -= zyx
+	Add = 10 -- xyz += zyx
 }
 
 ---@class Stmt
@@ -65,7 +66,12 @@ local function parse(code)
 
 
 	local function consumeAddress()
-		return consume("^($?[%w_]+)") or error("Invalid address: " .. (consume("^(%S+)") or "EOF"))
+		local offset, addr = consume("^-") and "-1", consume("^($?[%w_]+)") or error("Invalid address: " .. (consume("^(%S+)") or "EOF"))
+		if not offset and consume("^+") then
+			offset = "+" .. assert(consume("^(%d+)"), "Expected number for address offset")
+		end
+
+		return {addr, offset}
 	end
 
 	local consumeBlock
@@ -74,7 +80,9 @@ local function parse(code)
 	local function next()
 		local op = consume("^($?[%w_]+)")
 		if op == "loop" then
-			return Stmt.new(StmtKind.Loop, {consumeBlock(), true})
+			return Stmt.new(StmtKind.Loop, {consumeBlock()})
+		elseif op == "if" then
+			return Stmt.new(StmtKind.If, { consumeAddress(), assert(consume("^[<>]"), "Expected < or > for if statement"), assert(consume("^0") and 0, "Expected 0 for gt/lt operand"), consumeBlock(), consume("^else") and consumeBlock() })
 		elseif op == "for" then
 			local num = assert( consume("^(%d+)"), "Expected number after for keyword" )
 			return Stmt.new(StmtKind.For, {tonumber(num), consumeBlock()})
@@ -100,12 +108,12 @@ local function parse(code)
 			return Stmt.new(StmtKind.Asm, block:sub(2, -2))
 		elseif op then
 			if consume("^+=") then
-				return Stmt.new(StmtKind.Add, {op, consumeAddress()})
+				return Stmt.new(StmtKind.Add, {{op}, consumeAddress()})
 			elseif consume("^-=") then
-				return Stmt.new(StmtKind.Sub, {op, consumeAddress()})
+				return Stmt.new(StmtKind.Sub, {{op}, consumeAddress()})
 			elseif consume("^=") then
 				assert(consume("^0"), "Can only assign to 0.")
-				return Stmt.new(StmtKind.Zero, op)
+				return Stmt.new(StmtKind.Zero, {op})
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end

@@ -48,15 +48,16 @@ local function handleCase(dir, file)
 
 	local ok, ret = xpcall(func, debug.traceback)
 	if ok then
-		Ansi.Print("{cyan}CASE {yellow}%s{white}: {green}OK", file)
+		Ansi.Print("{white}--> {cyan}CASE {yellow}%s{white}: {green}OK", file)
 	else
 		failures = failures + 1
-		Ansi.Print("{cyan}CASE {yellow}%s{white}: {red}FAILED {white}({magenta}" .. tostring(ret) .. "{white})", file)
+		Ansi.Print("{white}-->{cyan}CASE {yellow}%s{white}: {red}FAILED {white}({magenta}" .. tostring(ret) .. "{white})", file)
 		io.write( table.concat(out, "\t") )
 	end
 end
 
-iterFiles("test/cases", handleCase)
+Ansi.Print("{white}Test cases for {yellow}test/cases/optimize{white}: ")
+iterFiles("test/cases/optimize", handleCase)
 
 if failures ~= 0 then
 	Ansi.Print("{red}Failed {yellow}%u{red} tests.", failures)
