@@ -30,8 +30,9 @@ end
 
 ---@param code string
 ---@return Stmt
-local function parse(code)
+local function parse(code, macros)
 	local ptr, code_len = 1, #code
+	macros = macros or {}
 
 	local function skipWhitespace()
 		local _, ws = code:find("^(%s+)", ptr)
@@ -63,9 +64,6 @@ local function parse(code)
 		end
 		return nil
 	end
-
-
-	local macros = {}
 
 	local function consumeAddress()
 		local offset, addr = consume("^-") and "-1", consume("^($?[%w_]+)") or error("Invalid address: " .. (consume("^(%S+)") or "EOF"))
@@ -158,11 +156,11 @@ local function parse(code)
 						end
 					end
 					assert(consume("^%)"), "Expected right paren to end macro arguments")
-					return parse(macro[2]:gsub("$(%w+)", args))
+					return parse(macro[2]:gsub("$(%w+)", args), macros)
 				end
 
 				assert(#macro[1] == 0, "Cannot invoke this macro without any arguments")
-				return parse(macro[2])
+				return parse(macro[2], macros)
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end

@@ -27,13 +27,21 @@ for 4 { // Compile time unfolded loop
 	}
 }
 
-macro subleq(a:address, b:address, c:address) {
-	asm {
-		subleq $a, $b, $c
-	}
+// Metaprogramming, recreating built-in operations using asm blocks.
+macro forever(block:block) { // You can accept blocks into macros, returning the inner contents.
+	static jmphack = 0
+	asm {@FOREVER:}
+	$block
+	asm {subleq @JMPHACK, @JMPHACK, @FOREVER}
 }
 
-subleq!(a, b, c)
+macro print(ptr:address, offset:number) { // Can also input addresses, numeric literals and string literals.
+	$out -= $ptr + $offset
+}
+
+forever!({ // Equivalent to loop { echo zero + 5 }
+	print!(jmphack, 5)
+})
 ```
 
 `Compiled`:
@@ -55,8 +63,12 @@ subleq @ZERO, @ZERO, @LOOP1
 ; Write raw sic-1 code if needed.
 ; Write raw sic-1 code if needed.
 ; Write raw sic-1 code if needed.
+@FOREVER:
+subleq @OUT, @JMPHACK+5
+subleq @JMPHACK, @JMPHACK, @FOREVER
 @A: .data 0
 @MSG: .data -"Hello, world!"
 @ZERO: .data 0
 @NEGATIVE_ONE: .data -1
+@JMPHACK: .data 0
 ```
