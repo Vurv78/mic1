@@ -32,8 +32,8 @@ elseif arg[1] == "parse" then
 	io.write(dbg(optimized))
 else
 	io.write([[
-		Mic1 Compiler:
-			compile <path>
-			parse <path>
+Mic1 Compiler:
+	compile <path>
+	parse <path>
 	]])
 end

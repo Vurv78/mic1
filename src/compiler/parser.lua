@@ -117,7 +117,7 @@ local function parse(code)
 				assert(consume("^:"), "Expected colon for macro parameter type")
 
 				local ty = assert(consume("^(%w+)"), "Expected macro parameter type after colon")
-				assert(ty == "block" or ty == "address", "Invalid macro parameter type (" .. ty .. "), expected block or address")
+				assert(ty == "block" or ty == "address" or ty == "string" or ty == "number", "Invalid macro parameter type (" .. ty .. "), expected block, string or number")
 				params[#params + 1] = { pname, ty }
 
 				if not consume("^,") then
@@ -147,6 +147,10 @@ local function parse(code)
 							args[data[1]] = assert(consume("^(%b{})"), "Expected block for macro argument #" .. i):sub(2, -2)
 						elseif data[2] == "address" then
 							args[data[1]] = assert(consume("^($?[%w_]+)"), "Expected address for macro argument #" .. i)
+						elseif data[2] == "string" then
+							args[data[1]] = assert(consume("^(\"[^\"]+\")"), "Expected string for macro argument #" .. i)
+						else -- number
+							args[data[1]] = assert(consume("^(%d+)"), "Expected number for macro argument #" .. i)
 						end
 
 						if i ~= last then
