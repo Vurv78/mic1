@@ -1,6 +1,6 @@
 # mic1
 
-A tiny (~300 SLOC), optimizing, metaprogrammable, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
+A tiny (400 SLOC), optimizing, metaprogrammable, statement-based language that compiles to SIC-1 code for https://github.com/jaredkrinke/sic1
 
 `Source`:
 ```rust
@@ -28,20 +28,25 @@ for 4 { // Compile time unfolded loop
 }
 
 // Metaprogramming, recreating built-in operations using asm blocks.
-macro forever(block:block) { // You can accept blocks into macros, returning the inner contents.
+macro lua(print $s:string) { // Can input addresses, numbers, strings, blocks and any other syntax.
+	static internal_print = -$s
+	$out -= internal_print
+}
+
+macro lua(while true do $block: block) { // Note there's also overloads.
 	static jmphack = 0
 	asm {@FOREVER:}
 	$block
 	asm {subleq @JMPHACK, @JMPHACK, @FOREVER}
 }
 
-macro print(ptr:address, offset:number) { // Can also input addresses, numeric literals and string literals.
-	$out -= $ptr + $offset
-}
-
-forever!({ // Equivalent to loop { echo zero + 5 }
-	print!(jmphack, 5)
-})
+lua! ( // Equivalent to static msg = -"Hello, world!" loop { echo msg }
+	while true do {
+		lua! (
+			print "Hello, world!"
+		)
+	}
+)
 ```
 
 `Compiled`:
@@ -64,11 +69,12 @@ subleq @ZERO, @ZERO, @LOOP1
 ; Write raw sic-1 code if needed.
 ; Write raw sic-1 code if needed.
 @FOREVER:
-subleq @OUT, @JMPHACK+5
+subleq @OUT, @INTERNAL_PRINT
 subleq @JMPHACK, @JMPHACK, @FOREVER
 @A: .data 0
 @MSG: .data -"Hello, world!"
 @ZERO: .data 0
 @NEGATIVE_ONE: .data -1
 @JMPHACK: .data 0
+@INTERNAL_PRINT: .data -"Hello, world!"
 ```

@@ -109,23 +109,26 @@ local function parse(code, macros)
 		elseif op == "macro" then
 			local name, params = assert(consume("^(%l[%w_]+)"), "Expected macro name after macro keyword"), {}
 			assert(consume("^%("), "Expected left paren to start macro parameters")
-			if consume("^%)") then macros[name] = {{}, assert(consume("^(%b{})"), "Expected block for macro"):sub(2, -2)} return true end
-			while true do
-				local pname = assert(consume("^(%w+)"), "Expected parameter name")
-				assert(consume("^:"), "Expected colon for macro parameter type")
-
-				local ty = assert(consume("^(%w+)"), "Expected macro parameter type after colon")
-				assert(ty == "block" or ty == "address" or ty == "string" or ty == "number", "Invalid macro parameter type (" .. ty .. "), expected block, string or number")
-				params[#params + 1] = { pname, ty }
-
-				if not consume("^,") then
-					break
+			if consume("^%)") then
+				macros[name] = macros[name] or {}
+				macros[name][#macros[name] + 1] = {{}, assert(consume("^(%b{})"), "Expected block for macro"):sub(2, -2)} return true end
+			repeat
+				if consume("^%$") then
+					local param_name = assert(consume("^(%w+)"), "Expected parameter name after $")
+					assert(consume("^:"), "Expected colon before macro parameter type")
+					local param_type = assert(consume("^(%w+)"), "Expected parameter type")
+					assert( ({block=1, address=1, string=1, number=1})[param_type], "Invalid macro parameter type (" .. param_type .. "), expected block, string or number")
+					params[#params + 1] = { false, param_name, param_type }
+				else
+					-- Raw syntax in between. Usually a comma
+					local token = assert(consume("^([^$)]+)"), "Expected token for macro parameter, got EOF")
+					params[#params + 1] = { true, token }
 				end
-			end
-			assert(consume("^%)"), "Expected right paren to end macro parameters")
+			until consume("^%)")
 
 			local block = assert(consume("^(%b{})"), "Expected block for macro"):sub(2, -2)
-			macros[name] = {params, block}
+			macros[name] = macros[name] or {}
+			macros[name][#macros[name] + 1] = {params, block}
 
 			return true
 		elseif op then
@@ -137,30 +140,47 @@ local function parse(code, macros)
 				assert(consume("^0"), "Can only assign to 0.")
 				return Stmt.new(StmtKind.Zero, {op})
 			elseif consume("^!") then
-				local macro = assert(macros[op], "Macro does not exist: " .. op)
-				if consume("^%(") then
-					local args, last = {}, #macro[1]
+				local overloads = assert(macros[op], "Macro does not exist: " .. op)
+				assert(consume("^%("), "Expected left paren to begin macro arguments")
+
+				local expected = {}
+				for k, macro in ipairs(overloads) do
+					local args, last, old_ptr = {}, #macro[1], ptr
 					for i, data in ipairs(macro[1]) do
-						if data[2] == "block" then
-							args[data[1]] = assert(consume("^(%b{})"), "Expected block for macro argument #" .. i):sub(2, -2)
-						elseif data[2] == "address" then
-							args[data[1]] = assert(consume("^($?[%w_]+)"), "Expected address for macro argument #" .. i)
-						elseif data[2] == "string" then
-							args[data[1]] = assert(consume("^(\"[^\"]+\")"), "Expected string for macro argument #" .. i)
-						else -- number
-							args[data[1]] = assert(consume("^(%d+)"), "Expected number for macro argument #" .. i)
+						if data[1] then
+							-- Raw syntax; Todo: Escape lua pattern syntax :p
+							local token = consume("^" .. data[2])
+							if not token then expected[#expected + 1] = "token " .. data[2] break end
+						else
+							if data[3] == "block" then
+								local token = consume("^(%b{})")
+								if not token then expected[#expected + 1] = "block" break end
+								args[data[2]] = token:sub(2, -2)
+							elseif data[3] == "address" then
+								local token = consume("^($?[%w_]+)")
+								if not token then expected[#expected + 1] = "address" break end
+								args[data[2]] = assert(token, "Expected address for macro argument #" .. i)
+							elseif data[3] == "string" then
+								local token = consume("^(\"[^\"]+\")")
+								if not token then expected[#expected + 1] = "string literal" break end
+								args[data[2]] = token
+							else -- number
+								local token = consume("^(%d+)")
+								if not token then expected[#expected + 1] = "number literal" break end
+								args[data[2]] = token
+							end
 						end
 
-						if i ~= last then
-							assert(consume("^,"), "Expected comma between macro arguments")
+						if i == last then
+							assert(consume("^%)"), "Expected right paren to end macro arguments")
+							return parse(macro[2]:gsub("$(%w+)", args), macros)
 						end
 					end
-					assert(consume("^%)"), "Expected right paren to end macro arguments")
-					return parse(macro[2]:gsub("$(%w+)", args), macros)
+
+					ptr = old_ptr
 				end
 
-				assert(#macro[1] == 0, "Cannot invoke this macro without any arguments")
-				return parse(macro[2], macros)
+				error("Expected " .. table.concat(expected, " or ") .. " for macro argument")
 			else
 				error("Invalid operation w/ identifier: " .. op)
 			end
